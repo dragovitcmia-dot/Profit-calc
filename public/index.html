@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Card profit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b4a25">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Profit and margin calculator for gift card resale.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Card profit">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+
+<!--
+  Error banner. Deliberately tiny, inline and independent of app.js so that it
+  still reports problems when app.js fails to download or fails to parse.
+  It lists EVERY error (not just the last one).
+-->
+<script>
+(function () {
+  var errors = [];
+  var box = null;
+  function render() {
+    if (!document.body) { document.addEventListener("DOMContentLoaded", render); return; }
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "error-banner";
+      box.setAttribute("role", "alert");
+      document.body.insertBefore(box, document.body.firstChild);
+    }
+    box.textContent = "";
+    var head = document.createElement("div");
+    head.className = "eb-head";
+    var title = document.createElement("strong");
+    title.textContent = errors.length + (errors.length === 1 ? " error" : " errors");
+    var close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Dismiss";
+    close.addEventListener("click", function () { errors = []; box.remove(); box = null; });
+    head.appendChild(title);
+    head.appendChild(close);
+    box.appendChild(head);
+    var list = document.createElement("ol");
+    errors.forEach(function (e) {
+      var li = document.createElement("li");
+      li.textContent = e;
+      list.appendChild(li);
+    });
+    box.appendChild(list);
+  }
+  function add(msg) { errors.push(String(msg)); render(); }
+  window.__reportError = add;
+  window.addEventListener("error", function (ev) {
+    var t = ev.target;
+    if (t && t !== window && (t.src || t.href)) {            // a resource failed to load
+      add("Failed to load " + (t.src || t.href));
+    } else {
+      add((ev.message || "Script error") + (ev.filename ? " (" + ev.filename.split("/").pop() + ":" + ev.lineno + ")" : ""));
+    }
+  }, true);
+  window.addEventListener("unhandledrejection", function (ev) {
+    var r = ev.reason;
+    add("Unhandled promise rejection: " + (r && r.message ? r.message : r));
+  });
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!window.__cardProfitReady) add("app.js did not start - the calculator will not work. Try reloading.");
+    }, 2500);
+  });
+})();
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">%</span>
+    <h1>Card profit</h1>
+    <span id="version" class="version">v1.0</span>
+  </div>
+  <button id="settings-btn" class="top-btn" type="button" aria-controls="settings-panel" aria-expanded="false">Settings</button>
+</header>
+
+<main id="app" class="layout" data-view="calc" data-desktop-settings="shown">
+
+  <!-- ============ Calculator ============ -->
+  <section id="calc-panel" aria-label="Calculator">
+    <form id="calc-form" class="card" novalidate autocomplete="off">
+      <div class="field-row">
+        <div class="field">
+          <label for="displayedPrice">Card price <span class="unit">EUR</span></label>
+          <input id="displayedPrice" name="displayedPrice" type="text" inputmode="decimal" placeholder="18.84" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+        </div>
+        <div class="field">
+          <label for="sellPrice">Sell price <span class="unit">TND</span></label>
+          <input id="sellPrice" name="sellPrice" type="text" inputmode="decimal" placeholder="80" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+        </div>
+      </div>
+      <button id="calc-btn" class="primary" type="submit">Calculate</button>
+    </form>
+
+    <section id="result" class="card result" aria-live="polite" aria-label="Result">
+      <!-- shown when inputs are missing / invalid -->
+      <div id="result-msg" class="notice" hidden>
+        <p id="result-msg-title" class="notice-title"></p>
+        <ul id="result-msg-list"></ul>
+        <button id="msg-settings-btn" class="link-btn" type="button" hidden>Open settings</button>
+      </div>
+
+      <!-- shown when everything is valid -->
+      <div id="result-ok" hidden>
+        <div class="profit-block">
+          <span class="label">Profit</span>
+          <output id="out-profit" class="profit" data-sign="0">-</output>
+        </div>
+
+        <div class="tiles">
+          <div class="tile"><span class="label">Margin on cost</span><output id="out-margin-cost">-</output></div>
+          <div class="tile"><span class="label">Margin on sale</span><output id="out-margin-sale">-</output></div>
+        </div>
+
+        <p id="out-chain" class="chain">-</p>
+
+        <dl class="rows">
+          <div><dt>Cost</dt><dd id="out-cost-tnd">-</dd></div>
+          <div><dt>Cost in USDT</dt><dd id="out-cost-usdt">-</dd></div>
+          <div><dt>Profit in USDT</dt><dd id="out-profit-usdt">-</dd></div>
+          <div><dt>Break-even price</dt><dd id="out-breakeven">-</dd></div>
+        </dl>
+
+        <h2 class="subhead">Suggested sell price <span>margin on cost</span></h2>
+        <ul id="out-suggest" class="suggest"></ul>
+      </div>
+    </section>
+
+    <p id="rates-line" class="rates-line"></p>
+  </section>
+
+  <!-- ============ Settings ============ -->
+  <section id="settings-panel" class="card settings" aria-label="Settings">
+    <h2 class="panel-title">Settings</h2>
+
+    <div class="field">
+      <label for="usdtPrice">USDT price <span class="unit">TND per 1 USDT</span></label>
+      <input id="usdtPrice" type="text" inputmode="decimal" placeholder="3.38" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label for="creditPrice">Credit price <span class="unit">paid for 100 EUR of balance</span></label>
+      <input id="creditPrice" type="text" inputmode="decimal" placeholder="113" autocomplete="off" spellcheck="false">
+    </div>
+
+    <fieldset class="field segmented" aria-label="Credit price currency">
+      <legend>Credit price currency</legend>
+      <label class="seg"><input type="radio" name="currency" value="USD" checked><span>USD</span></label>
+      <label class="seg"><input type="radio" name="currency" value="EUR"><span>EUR</span></label>
+    </fieldset>
+
+    <div id="rate-group" class="field rate-group">
+      <label for="eurUsdRate">EUR/USD rate <span class="unit">1 EUR in USD</span></label>
+      <div class="rate-row">
+        <input id="eurUsdRate" type="text" inputmode="decimal" placeholder="1.0800" autocomplete="off" spellcheck="false">
+        <button id="rate-btn" class="secondary" type="button">Pull live</button>
+      </div>
+      <p id="rate-hint" class="hint"></p>
+      <p id="rate-status" class="hint" role="status"></p>
+      <p id="rate-error" class="hint error-text" role="status" hidden></p>
+    </div>
+
+    <p id="settings-summary" class="hint summary"></p>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

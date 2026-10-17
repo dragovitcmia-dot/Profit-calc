@@ -1,0 +1,13 @@
+{
+  "name": "card-profit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Card profit PWA (static files in public/, deployed on Netlify)",
+  "scripts": {
+    "serve": "node tests/serve.js",
+    "test": "node tests/e2e.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}
